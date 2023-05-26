@@ -43,10 +43,6 @@ withDefaults(
 const infratographerLogo = InfratographerLogo
 
 const GlobalStore = useGlobalStore()
-
-// set the user from the oidc token
-GlobalStore.setOidcUser()
-
 const { isSidebarMinimized, getUserName } = storeToRefs(GlobalStore)
 
 const { getColors } = useColors()

@@ -28,29 +28,4 @@ export default {
   tokenXchange: {
     url: tokenXchangeUrl as string,
   },
-  // settings: {
-  //   authority: "https://sso.equinixmetal.com/oauth2/default",
-  //   // metadata: {
-  //   //   issuer: "https://github.com/login/oauth/authorize",
-  //   //   authorization_endpoint: "https://github.com/login/oauth/authorize",
-  //   // },
-  //   client_id: "0oa3aprm1rLihHxZj697",
-  //   redirect_uri: window.location.origin + "/login/callback",
-  //   // redirectMethod: "assign",
-  //   // post_logout_redirect_uri: url,
-  //   response_type: "code",
-  //   scope: "openid email profile",
-  //   userStore: new WebStorageStateStore({ store: window.localStorage }),
-
-  //   // response_mode: "fragment",
-
-  //   // popup_redirect_uri: window.location.origin + "/login/callback",
-  //   // popup_post_logout_redirect_uri: url + "/sample-popup-signout.html",
-
-  //   // silent_redirect_uri: url + "/sample-silent.html",
-  //   // automaticSilentRenew: true,
-  //   //silentRequestTimeout: 10000,
-
-  //   // filterProtocolClaims: true
-  // } as UserManagerSettings,
 }

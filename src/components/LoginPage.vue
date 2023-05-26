@@ -1,15 +1,4 @@
 <template>
-  <va-alert
-    v-if="loginError"
-    color="danger"
-    :title="'Login error'"
-    icon="error"
-    center
-    class="mt-4"
-  >
-    {{ loginError }}
-  </va-alert>
-
   <div class="auth-layout row align-content-center">
     <div class="flex xs12">
       <div class="d-flex justify-center">
@@ -23,16 +12,7 @@
             </div>
 
             <div class="d-flex justify-center">
-              <va-button
-                v-if="authState && authState.isAuthenticated"
-                preset="primary"
-                size="large"
-                @click="redirect"
-                >Login</va-button
-              >
-              <va-button v-else preset="primary" size="large" @click="login"
-                >Login with SSO</va-button
-              >
+              <GoogleLogin :callback="callback" prompt auto-login />
             </div>
           </va-card-actions>
         </va-card>
@@ -42,35 +22,22 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from "vue"
 import InfratographerLogo from "@/components/logos/infratographer_logo_text.png"
-// import auth from "@/auth"
-import { useAuth } from "@okta/okta-vue"
 import { useGlobalStore } from "@/stores/global-store"
 import { useRouter } from "vue-router"
 
-const infratographerLogo = InfratographerLogo
-
-const GlobalStore = useGlobalStore()
 const router = useRouter()
-const auth = useAuth()
 
-const login = async () => {
-  GlobalStore.setAuthInProgress()
-  await auth.signInWithRedirect()
-}
+const callback = (response: any) => {
+  console.debug("callback response", response)
 
-const redirect = async () => {
+  useGlobalStore().saveJwt(response.credential)
+  useGlobalStore().exchangeToken(response.credential)
+
   router.push({ name: "dashboard" })
 }
 
-const loginError = computed(() => {
-  return GlobalStore.getLoginError
-})
-
-onMounted(() => {
-  GlobalStore.resetLoginError()
-})
+const infratographerLogo = InfratographerLogo
 </script>
 
 <style lang="scss">

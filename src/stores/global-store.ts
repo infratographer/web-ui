@@ -1,11 +1,10 @@
 import { defineStore } from "pinia"
+import { useStorage } from "@vueuse/core"
 import axios from "axios"
 import type { AxiosError } from "axios"
 import config from "@/config"
 
-import { useAuth } from "@okta/okta-vue"
-import { useStorage } from "@vueuse/core"
-import type { UserClaims } from "@okta/okta-auth-js"
+import { decodeCredential } from "vue3-google-login"
 
 const tokenXClient = axios.create({
   baseURL: config.tokenXchange.url,
@@ -15,43 +14,38 @@ const tokenXClient = axios.create({
 export const useGlobalStore = defineStore("global", {
   state: () => ({
     dyslexicMode: useStorage("dyslexicMode", false),
-    isAdmin: undefined as Boolean | undefined,
+    jwtToken: useStorage("oidc-jwt-token", ""),
     isSidebarMinimized: useStorage("isSidebarMinimized", false),
-    oidcUser: {} as UserClaims,
+    oidcUserData: {},
     i12rToken: "",
   }),
 
   getters: {
-    isAuthInProgress() {
-      const authInProgress = sessionStorage.getItem("authInProgress")
-      if (authInProgress && typeof authInProgress === "string") {
-        return true
-      }
-      return false
+    isAuthenticated(state) {
+      return state.jwtToken !== ""
     },
     isDyslexicMode(state) {
       return state.dyslexicMode
     },
-    getLoginError(): string {
-      const loginError = sessionStorage.getItem("loginError")
-      if (loginError && typeof loginError === "string") {
-        return loginError
-      }
-      return ""
+    getJwt(state) {
+      return state.jwtToken
     },
     getToken(state) {
       return state.i12rToken
     },
+    getUserData(state) {
+      const userData: any = decodeCredential(state.jwtToken)
+      return userData
+    },
     getUserName(state) {
-      return state.oidcUser.name
+      const userData: any = decodeCredential(state.jwtToken)
+      return userData.name
     },
   },
 
   actions: {
     // exchangeToken calls the token exchange endpoint to get an infratographer token
-    async exchangeToken() {
-      const authToken = useAuth().getAccessToken()
-
+    async exchangeToken(authToken: string) {
       if (!authToken) {
         return
       }
@@ -76,25 +70,19 @@ export const useGlobalStore = defineStore("global", {
         throw err as typeof AxiosError
       }
     },
-    async setOidcUser() {
-      const auth = useAuth()
-      const user = await auth.getUser()
-      this.oidcUser = user
+    async setOidcUserData(data: any) {
+      this.oidcUserData = data
+
+      console.debug("oidcUserData", this.oidcUserData)
     },
-    resetAuthInProgress() {
-      sessionStorage.removeItem("authInProgress")
-    },
-    resetLoginError() {
-      sessionStorage.removeItem("loginError")
-    },
-    setAuthInProgress() {
-      sessionStorage.setItem("authInProgress", "true")
+    resetJwt() {
+      this.jwtToken = ""
     },
     setDyslexicMode(mode: boolean) {
       this.dyslexicMode = mode
     },
-    setLoginError(msg: string) {
-      sessionStorage.setItem("loginError", JSON.stringify(msg))
+    saveJwt(token: string) {
+      this.jwtToken = token
     },
   },
 })

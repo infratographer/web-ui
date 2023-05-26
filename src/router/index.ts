@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from "vue-router"
 import type { RouteRecordRaw } from "vue-router"
-import { navigationGuard, LoginCallback } from "@okta/okta-vue"
+
+import { useGlobalStore } from "@/stores/global-store"
 
 import AppLayout from "../layouts/AppLayout.vue"
 import LoginPage from "../components/LoginPage.vue"
@@ -20,24 +21,20 @@ const routes: Array<RouteRecordRaw> = [
     redirect: { name: "dashboard" },
   },
   {
-    path: "/login/callback",
-    component: LoginCallback,
-  },
-  {
+    name: "login",
     path: "/login",
     component: LoginPage,
   },
   {
+    name: "logout",
     path: "/logout",
     component: LogoutPage,
-    meta: { requiresAuth: true },
   },
   {
     name: "home",
     path: "/",
     component: AppLayout,
     redirect: { name: "dashboard" },
-    meta: { requiresAuth: true },
     children: [
       {
         name: "dashboard",
@@ -85,6 +82,11 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach(navigationGuard)
+router.beforeEach(async (to) => {
+  if (!useGlobalStore().isAuthenticated && to.name !== "login") {
+    console.debug("router.beforeEach: not authenticated, redirecting to login")
+    return { name: "login" }
+  }
+})
 
 export default router

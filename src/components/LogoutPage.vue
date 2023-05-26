@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { useAuth } from "@okta/okta-vue"
 import { onMounted } from "vue"
+import { useRouter } from "vue-router"
+import { googleLogout } from "vue3-google-login"
 
-const auth = useAuth()
-
-const logout = async () => {
-  await auth.signOut()
-}
+import { useGlobalStore } from "@/stores/global-store"
 
 onMounted(() => {
-  logout()
+  googleLogout()
+
+  useGlobalStore().resetJwt()
+
+  useRouter().push({ name: "login" })
 })
 </script>

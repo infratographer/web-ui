@@ -2,8 +2,23 @@
   <div id="dashboard-view">
     <div class="flex row row-equal">
       <div class="flex ma-3">
+        <div class="row pa-3">
+          <va-input label="Root tenant id" v-model="rootTenantInput"></va-input>
+          <va-button preset="secondary" @click="handleSetRootTenantClick"
+            >Set root tenant</va-button
+          >
+        </div>
+
         <va-card>
           <va-card-title> Tenant graph </va-card-title>
+          <va-card-content v-if="rootTenant == ''">
+            <va-button
+              preset="secondary"
+              icon="add"
+              @click="showCreateModal(null)"
+              >Create root tenant</va-button
+            >
+          </va-card-content>
           <va-card-content>
             <div class="pa-3">
               <va-tree-view
@@ -40,13 +55,21 @@
                       </div>
                     </span>
 
-                    <va-button
-                      v-if="node.type === 'Tenant'"
-                      preset="secondary"
-                      icon="add"
-                      class="ml-auto"
-                      @click="showCreateModal(node)"
-                    />
+                    <span v-if="node.type === 'Tenant'" class="ml-auto">
+                      <va-button
+                        preset="secondary"
+                        icon="add"
+                        @click="showCreateModal(node)"
+                      />
+                    </span>
+                    <span v-else-if="node.type === 'Location'" class="ml-auto">
+                      <va-button
+                        preset="secondary"
+                        color="danger"
+                        icon="remove"
+                        @click="showDeleteModal(node)"
+                      />
+                    </span>
                   </div>
                 </template>
               </va-tree-view>
@@ -76,6 +99,7 @@
         :option="option"
         class="mb-4"
         prevent-overflow
+        :readonly="createForm.parentID === ''"
       />
 
       <va-input label="Parent ID" v-model="createForm.parentID" readonly />
@@ -103,25 +127,65 @@
         Cancel
       </va-button>
 
-      <va-button type="submit" @click="handleCreate">
+      <va-button
+        v-if="createForm.parentID == ''"
+        type="submit"
+        @click="handleCreateRootTenant"
+      >
         Create {{ createForm.nodeType }}
+      </va-button>
+      <va-button v-else type="submit" @click="handleCreate">
+        Create {{ createForm.nodeType }}
+      </va-button>
+    </template>
+  </va-modal>
+
+  <va-modal
+    v-model="isShowDeleteModal"
+    :title="'Delete ' + deleteForm.nodeType"
+    no-outside-dismiss
+    hide-default-actions
+  >
+    <div class="my-4">
+      Delete {{ deleteForm.nodeType }} {{ deleteForm.name }} ({{
+        deleteForm.id
+      }})?
+    </div>
+
+    <template #footer>
+      <va-button
+        @click="closeDeleteModal"
+        preset="outline"
+        color="secondary"
+        class="mr-3"
+      >
+        Cancel
+      </va-button>
+
+      <va-button type="submit" color="danger" @click="handleDelete">
+        Delete {{ deleteForm.nodeType }}
       </va-button>
     </template>
   </va-modal>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, reactive } from "vue"
+import { computed, ref, reactive, watch } from "vue"
 import { useRouter } from "vue-router"
+import { useGraphqlStore } from "@/stores/graphql-store"
+import { fragmentLocationDetails, fragmentTenantDetails } from "@/stores/graphql-fragments"
 
 import { useQuery, useMutation } from "@vue/apollo-composable"
 import gql from "graphql-tag"
 import type { TreeNode } from "vuestic-ui"
 
 const router = useRouter()
+const graphql = useGraphqlStore()
 
+const rootTenantInput = ref("")
 const refCreateForm = ref()
 const isShowCreateModal = ref(false)
+const isShowDeleteModal = ref(false)
 
 const nodeTypes = ["Tenant", "Location"]
 
@@ -133,34 +197,42 @@ const createForm = reactive({
   description: "",
 })
 
-// temporary here until we can list all tenants
-const rootTenant = "tnntten-TYScYJGsIhBs1aRIX5tp0"
+const deleteForm = reactive({
+  id: "",
+  nodeType: "",
+  name: "",
+  description: "",
+})
+
+const rootTenant = computed(() => {
+  return graphql.getRootTenantID
+})
+
+watch(
+  rootTenant,
+  (newRootTenant: string) => {
+    rootTenantInput.value = newRootTenant
+  },
+  { immediate: true }
+)
 
 const { result, loading, error, refetch } = useQuery(
   gql`
     query getTenant($id: ID!) {
       tenant(id: $id) {
-        id
-        name
-        description
+        ...tenantDetails
         children {
           edges {
             node {
-              id
-              name
-              description
+              ...tenantDetails
               children {
                 edges {
                   node {
-                    id
-                    name
-                    description
+                    ...tenantDetails
                     locations {
                       edges {
                         node {
-                          id
-                          name
-                          description
+                          ...locationDetails
                         }
                       }
                     }
@@ -170,9 +242,7 @@ const { result, loading, error, refetch } = useQuery(
               locations {
                 edges {
                   node {
-                    id
-                    name
-                    description
+                    ...locationDetails
                   }
                 }
               }
@@ -182,21 +252,43 @@ const { result, loading, error, refetch } = useQuery(
         locations {
           edges {
             node {
-              id
-              name
-              description
+              ...locationDetails
             }
           }
         }
       }
     }
+    ${fragmentLocationDetails}
+    ${fragmentTenantDetails}
   `,
   {
     id: rootTenant,
   }
 )
 
-const { mutate: createTenant, error: createTenantError } = useMutation(
+const { mutate: createRootTenant, onDone: onCreateRootTenantDone } =
+  useMutation(
+    gql`
+      mutation createRootTenant($input: CreateTenantInput!) {
+        tenantCreate(input: $input) {
+          tenant {
+            id
+            name
+          }
+        }
+      }
+    `,
+    () => ({
+      variables: {
+        input: {
+          name: createForm.name,
+          description: createForm.description,
+        },
+      },
+    })
+  )
+
+const { mutate: createTenant } = useMutation(
   gql`
     mutation createTenant($input: CreateTenantInput!) {
       tenantCreate(input: $input) {
@@ -218,7 +310,22 @@ const { mutate: createTenant, error: createTenantError } = useMutation(
   })
 )
 
-const { mutate: createLocation, error: createLocationError } = useMutation(
+const { mutate: deleteTenant } = useMutation(
+  gql`
+    mutation deleteTenant($tenantDeleteId: ID!) {
+      tenantDelete(id: $tenantDeleteId) {
+        deletedID
+      }
+    }
+  `,
+  () => ({
+    variables: {
+      tenantDeleteId: deleteForm.id,
+    },
+  })
+)
+
+const { mutate: createLocation } = useMutation(
   gql`
     mutation createLocation($input: CreateLocationInput!) {
       locationCreate(input: $input) {
@@ -236,6 +343,21 @@ const { mutate: createLocation, error: createLocationError } = useMutation(
         name: createForm.name,
         description: createForm.description,
       },
+    },
+  })
+)
+
+const { mutate: deleteLocation } = useMutation(
+  gql`
+    mutation deleteLocation($locationDeleteId: ID!) {
+      locationDelete(id: $locationDeleteId) {
+        deletedID
+      }
+    }
+  `,
+  () => ({
+    variables: {
+      locationDeleteId: deleteForm.id,
     },
   })
 )
@@ -279,16 +401,55 @@ function validateDescription(value: string) {
   return true
 }
 
-function showCreateModal(node: TreeNode) {
-  createForm.parentID = node.id.toString()
-  createForm.parentName = node.label
-  isShowCreateModal.value = true
+function showCreateModal(node: TreeNode | null) {
+  if (!node) {
+    createForm.parentID = ""
+    createForm.parentName = "N/A"
+    createForm.nodeType = nodeTypes[0]
+    isShowCreateModal.value = true
+  } else {
+    createForm.parentID = node.id.toString()
+    createForm.parentName = node.label
+    isShowCreateModal.value = true
+  }
 }
 
 function closeCreateModal() {
   isShowCreateModal.value = false
   createForm.name = ""
   createForm.description = ""
+}
+
+function showDeleteModal(node: TreeNode) {
+  deleteForm.id = node.id.toString()
+  deleteForm.name = node.label
+  deleteForm.description = node.description
+  deleteForm.nodeType = node.type
+  isShowDeleteModal.value = true
+}
+
+function closeDeleteModal() {
+  isShowDeleteModal.value = false
+  deleteForm.id = ""
+  deleteForm.name = ""
+  deleteForm.description = ""
+  deleteForm.nodeType = ""
+}
+
+function handleCreateRootTenant() {
+  if (!refCreateForm.value.validate()) {
+    return
+  }
+
+  console.debug("handleCreateRootTenant", createForm)
+
+  switch (createForm.nodeType) {
+    case "Tenant":
+      createRootTenant()
+      break
+  }
+
+  closeCreateModal()
 }
 
 function handleCreate() {
@@ -307,9 +468,24 @@ function handleCreate() {
       break
   }
 
-  console.debug("handleCreate errors", createTenantError, createLocationError)
-
   closeCreateModal()
+
+  refetch()
+}
+
+function handleDelete() {
+  console.debug("handleDelete", deleteForm)
+
+  switch (deleteForm.nodeType) {
+    case "Tenant":
+      deleteTenant()
+      break
+    case "Location":
+      deleteLocation()
+      break
+  }
+
+  closeDeleteModal()
 
   refetch()
 }
@@ -328,6 +504,16 @@ function handleNodeClick(node: TreeNode) {
       console.error("unknown node type", node.Type)
   }
 }
+
+function handleSetRootTenantClick() {
+  console.debug("handleSetRootTenantClick", rootTenantInput.value)
+
+  graphql.setRootTenantID(rootTenantInput.value)
+}
+
+onCreateRootTenantDone((result) => {
+  graphql.setRootTenantID(result.data.tenantCreate?.tenant?.id)
+})
 
 // getChildren is a recursive function that loops over all levels of tenant children and locations
 function getChildren(children: [], locations: []): TreeNode[] {

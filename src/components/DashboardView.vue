@@ -173,7 +173,10 @@
 import { computed, ref, reactive, watch } from "vue"
 import { useRouter } from "vue-router"
 import { useGraphqlStore } from "@/stores/graphql-store"
-import { fragmentLocationDetails, fragmentTenantDetails } from "@/stores/graphql-fragments"
+import {
+  fragmentLocationDetails,
+  fragmentTenantDetails,
+} from "@/stores/graphql-fragments"
 
 import { useQuery, useMutation } from "@vue/apollo-composable"
 import gql from "graphql-tag"

@@ -13,12 +13,12 @@ const tokenXchangeUrl = baseconf.TOKENXCHANGE_URL || import.meta.env.VITE_TOKENX
 const oidcClientId = baseconf.OIDC_CLIENT_ID || import.meta.env.VITE_OIDC_CLIENT_ID
 
 // @ts-ignore
-const oidcIssuer = baseconf.OIDC_ISSUER || import.meta.env.VITE_OIDC_ISSUER
+// const oidcIssuer = baseconf.OIDC_ISSUER || import.meta.env.VITE_OIDC_ISSUER
 
 export default {
   oidc: {
     clientId: oidcClientId as string,
-    issuer: oidcIssuer as string,
+    // issuer: oidcIssuer as string,
     redirectUri: window.location.origin + "/login/callback",
     scopes: ["openid", "profile", "email"],
   },

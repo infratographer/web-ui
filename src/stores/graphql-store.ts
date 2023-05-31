@@ -17,6 +17,9 @@ import gql from "graphql-tag"
 import {
   fragmentLocationDetails,
   fragmentTenantDetails,
+  fragmentAnnotationDetails,
+  fragmentAnnotationNamespaceDetails,
+  fragmentMetadataDetails,
 } from "./graphql-fragments"
 
 const httpLink = createHttpLink({
@@ -55,9 +58,37 @@ export interface Location {
   id: string
   name: string
   description: string
-  ownerId: string
+  ownerID: string
   createdAt: string
   updatedAt: string
+}
+
+export interface Annotation {
+  id: string
+  data: JSON
+  metadataID: string
+  metadata: Metadata
+  namespace: AnnotationNamespace
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AnnotationNamespace {
+  id: string
+  name: string
+  ownerID: string
+  private: boolean
+  createdAt: string
+  updatedAt: string
+  annotations: Annotation[]
+}
+
+export interface Metadata {
+  id: string
+  nodeID: string
+  createdAt: string
+  updatedAt: string
+  annotations: Annotation[]
 }
 
 export interface Tenant {
@@ -69,6 +100,7 @@ export interface Tenant {
   parent: Tenant
   children: Tenant[]
   locations: Location[]
+  annotationNamespaces: AnnotationNamespace[]
 }
 
 export const useGraphqlStore = defineStore("graphql", () => {
@@ -87,6 +119,7 @@ export const useGraphqlStore = defineStore("graphql", () => {
 
   const currentLocation = ref({} as Location)
   const currentTenant = ref({} as Tenant)
+  const currentAnnotationNamespace = ref({} as AnnotationNamespace)
 
   const getCurrentLocation = computed(() => {
     return currentLocation.value
@@ -94,6 +127,10 @@ export const useGraphqlStore = defineStore("graphql", () => {
 
   const getCurrentTenant = computed(() => {
     return currentTenant.value
+  })
+
+  const getCurrentAnnotationNamespace = computed(() => {
+    return currentAnnotationNamespace.value
   })
 
   async function queryLocation(id: string) {
@@ -118,7 +155,7 @@ export const useGraphqlStore = defineStore("graphql", () => {
       const response = await apolloClient.query({
         query: query,
         variables: { id: id },
-        // fetchPolicy: "no-cache",
+        fetchPolicy: "no-cache",
       })
 
       console.debug("response", response)
@@ -154,8 +191,23 @@ export const useGraphqlStore = defineStore("graphql", () => {
               }
             }
           }
+          annotationNamespaces {
+            edges {
+              node {
+                ...annotationNamespaceDetails
+                annotations {
+                  ...annotationDetails
+                  namespace {
+                    ...annotationNamespaceDetails
+                  }
+                }
+              }
+            }
+          }
         }
       }
+      ${fragmentAnnotationDetails}
+      ${fragmentAnnotationNamespaceDetails}
       ${fragmentTenantDetails}
     `
 
@@ -163,7 +215,7 @@ export const useGraphqlStore = defineStore("graphql", () => {
       const response = await apolloClient.query({
         query: query,
         variables: { id: id },
-        // fetchPolicy: "no-cache",
+        fetchPolicy: "no-cache",
       })
 
       console.debug("response", response)
@@ -173,22 +225,106 @@ export const useGraphqlStore = defineStore("graphql", () => {
     }
   }
 
+  async function queryAnnotationNamespace(id: string) {
+    console.debug("query annotation namespace", id)
+
+    const query = gql`
+      query getAnnotationNamespace($id: ID!) {
+        annotationNamespace(id: $id) {
+          ...annotationNamespaceDetails
+          annotations {
+            ...annotationDetails
+            metadata {
+              ...metadataDetails
+            }
+          }
+        }
+      }
+      ${fragmentAnnotationDetails}
+      ${fragmentAnnotationNamespaceDetails}
+      ${fragmentMetadataDetails}
+    `
+
+    try {
+      const response = await apolloClient.query({
+        query: query,
+        variables: { id: id },
+        fetchPolicy: "no-cache",
+      })
+
+      console.debug("response", response)
+      currentAnnotationNamespace.value = graphqlDataToAnnotationNamespace(
+        response.data?.annotationNamespace
+      )
+    } catch (err) {
+      console.error(err.message)
+    }
+  }
+
   return {
     getCurrentLocation,
     getCurrentTenant,
+    getCurrentAnnotationNamespace,
     getRootTenantID,
     setRootTenantID,
     queryLocation,
     queryTenant,
+    queryAnnotationNamespace,
   }
 })
+
+// Helper functions to convert graphql data to our types
+
+function graphqlDatatoMetadata(data: any): Metadata {
+  return {
+    id: data.id,
+    nodeID: data.nodeID,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    annotations: data.annotations?.edges.map((edge: any) => {
+      return graphqlDataToAnnotation(edge.node)
+    }),
+  }
+}
+
+function graphqlDataToAnnotation(data: any): Annotation {
+  return {
+    id: data.id,
+    data: data.data,
+    metadataID: data.metadataID,
+    metadata: data.metadata
+      ? graphqlDatatoMetadata(data.metadata)
+      : ({} as Metadata),
+    namespace: data.namespace
+      ? graphqlDataToAnnotationNamespace(data.namespace)
+      : ({} as AnnotationNamespace),
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+  }
+}
+
+function graphqlDataToAnnotationNamespace(data: any): AnnotationNamespace {
+  const annotations: Annotation[] = data.annotations?.map((node: any) => {
+    return graphqlDataToAnnotation(node)
+  })
+
+  return {
+    id: data.id,
+    name: data.name,
+    ownerID: data.owner?.id,
+    private: data.private || false,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    annotations: annotations,
+  }
+}
 
 function graphqlDataToLocation(data: any): Location {
   return {
     id: data.id,
     name: data.name,
     description: data.description,
-    ownerId: data.owner?.id,
+    ownerID: data.owner?.id,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
   }
@@ -198,6 +334,11 @@ function graphqlDataToTenant(data: any): Tenant {
   if (!data) {
     return {} as Tenant
   }
+
+  const annotationNamespaces: AnnotationNamespace[] =
+    data.annotationNamespaces?.edges.map((edge: any) => {
+      return graphqlDataToAnnotationNamespace(edge.node)
+    })
 
   const locations: Location[] = data.locations?.edges.map((edge: any) => {
     return graphqlDataToLocation(edge.node)
@@ -213,8 +354,9 @@ function graphqlDataToTenant(data: any): Tenant {
     description: data.description,
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
-    locations: locations,
     parent: graphqlDataToTenant(data.parent),
     children: children,
+    annotationNamespaces: annotationNamespaces,
+    locations: locations,
   }
 }

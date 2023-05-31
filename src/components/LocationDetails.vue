@@ -31,8 +31,8 @@
 
       <tr>
         <td>Owner</td>
-        <td @click="handleTenantClick(location.ownerId)">
-          <a href="#" class="va-link">{{ location.ownerId }}</a>
+        <td @click="handleTenantClick(location.ownerID)">
+          <a href="#" class="va-link">{{ location.ownerID }}</a>
         </td>
       </tr>
     </tbody>

@@ -19,3 +19,32 @@ export const fragmentTenantDetails = gql`
     updatedAt
   }
 `
+
+export const fragmentAnnotationDetails = gql`
+  fragment annotationDetails on Annotation {
+    id
+    data
+    metadataID
+    createdAt
+    updatedAt
+  }
+`
+
+export const fragmentAnnotationNamespaceDetails = gql`
+  fragment annotationNamespaceDetails on AnnotationNamespace {
+    id
+    name
+    private
+    createdAt
+    updatedAt
+  }
+`
+
+export const fragmentMetadataDetails = gql`
+  fragment metadataDetails on Metadata {
+    id
+    nodeID
+    createdAt
+    updatedAt
+  }
+`

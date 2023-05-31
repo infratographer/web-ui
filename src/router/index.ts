@@ -7,13 +7,14 @@ import AppLayout from "../layouts/AppLayout.vue"
 import LoginPage from "../components/LoginPage.vue"
 import LogoutPage from "../components/LogoutPage.vue"
 import ErrorsToken from "../components/ErrorsToken.vue"
+import ProfileDetails from "../components/ProfileDetails.vue"
 
 import DashboardView from "../components/DashboardView.vue"
 import TenantsList from "../components/TenantsList.vue"
 import TenantDetails from "../components/TenantDetails.vue"
 import LocationsList from "../components/LocationsList.vue"
 import LocationDetails from "../components/LocationDetails.vue"
-import ProfileDetails from "../components/ProfileDetails.vue"
+import AnnotationNamespaceDetails from "../components/AnnotationNamespaceDetails.vue"
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -40,6 +41,12 @@ const routes: Array<RouteRecordRaw> = [
         name: "dashboard",
         path: "dashboard",
         component: DashboardView,
+      },
+      {
+        name: "annotation_ns_details",
+        path: "annotation-namespace/:id",
+        component: AnnotationNamespaceDetails,
+        props: true,
       },
       {
         name: "tenants",
